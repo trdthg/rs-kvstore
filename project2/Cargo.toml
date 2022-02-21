@@ -1,0 +1,20 @@
+[package]
+name = "kvs"
+version = "0.1.0"
+author = ["Trdthg <trdthg@outlook.com>"]
+description = "Another KvStore"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dependencies]
+clap = "3.0.10"
+failure = "0.1.8"
+serde = { version = "1.0.134", failure = ["derive"] }
+serde_json = "1.0.75"
+serde_derive = "1.0.134"
+
+[dev-dependencies]
+assert_cmd = "2.0.4"
+predicates = "2.1.1"
+tempfile = "3.3.0"
+walkdir = "2.3.2"
