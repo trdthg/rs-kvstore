@@ -3,10 +3,8 @@ use std::{env::current_dir, fs, net::SocketAddr, process::exit, str::FromStr};
 use clap::{ArgEnum, Parser};
 use log::{error, info, warn, LevelFilter};
 
-use kvs::{
-    thread_pool::{NaiveThreadPool, RayonThreadPool, ThreadPool},
-    KvStore, KvsEngine, KvsError, KvsServer, Result, SledKvsEngine,
-};
+use kvs::thread_pool::*;
+use kvs::*;
 
 const DEFAULT_LISTENING_ADDRESS: &str = "127.0.0.1:4000";
 const PORT_FORMAT: &str = "IP:PORT";
@@ -90,7 +88,7 @@ fn run(opt: Opt) -> Result<()> {
     // write engine to engine file
     fs::write(current_dir()?.join("engine"), format!("{}", engine))?;
 
-    let pool = RayonThreadPool::new(num_cpus::get() as u32)?;
+    let pool = TheBookThreadPool::new(num_cpus::get() as u32)?;
 
     match engine {
         Engine::kvs => run_with_engine(KvStore::open(current_dir()?)?, pool, opt.addr),

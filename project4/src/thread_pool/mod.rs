@@ -1,11 +1,13 @@
 mod naive;
 mod rayon;
 mod shared_queue;
+mod the_book;
 use crate::Result;
 
 pub use self::naive::NaiveThreadPool;
 pub use self::rayon::RayonThreadPool;
 pub use self::shared_queue::SharedQueueThreadPool;
+pub use self::the_book::TheBookThreadPool;
 
 pub trait ThreadPool {
     fn new(threads: u32) -> Result<Self>
