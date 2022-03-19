@@ -1,0 +1,33 @@
+[package]
+name = "kvs"
+version = "0.1.0"
+authors = ["Trdthg <trdthg@outlook.com>"]
+description = "A key-value store"
+edition = "2021"
+
+[dependencies]
+clap = { version = "3.0.10", features = ["derive"] }
+structopt = "0.3.26"
+failure = "0.1.8"
+serde = { version = "1.0.135", features = ["derive"] }
+serde_derive = "1.0.135"
+serde_json = "1.0.78"
+log = "0.4.14"
+env_logger = "0.9.0"
+sled = "0.34.7"
+
+crossbeam = "0.8.1"
+crossbeam-skiplist = { git = "https://github.com/crossbeam-rs/crossbeam.git", branch = "master" }
+num_cpus = "1.13.1"
+rayon = "1.5.1"
+[dev-dependencies]
+assert_cmd = "2.0.4"
+criterion = "0.3.5"
+predicates = "2.1.1"
+tempfile = "3.3.0"
+walkdir = "2.3.2"
+panic-control = "0.1.4"
+
+# [[bench]]
+# name = "engine_bench"
+# harness = false

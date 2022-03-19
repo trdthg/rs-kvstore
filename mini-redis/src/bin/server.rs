@@ -1,7 +1,7 @@
-use std::{collections::HashMap, slice::SliceIndex, time::Duration};
+use std::collections::HashMap;
 
 use bytes::Bytes;
-use mini_redis::Command;
+use mini_redis::*;
 use std::sync::{Arc, Mutex};
 use tokio::net::{TcpListener, TcpStream};
 
@@ -34,7 +34,7 @@ async fn main() {
     }
 }
 
-async fn handle_connection(stream: TcpStream, sharedDb: ShardedDb) {
+async fn handle_connection(stream: TcpStream, shared_db: ShardedDb) {
     let mut connection = Connection::new(stream);
 
     while let Some(frame) = connection.read_frame().await.unwrap() {
@@ -43,14 +43,14 @@ async fn handle_connection(stream: TcpStream, sharedDb: ShardedDb) {
         let response = match Command::from_frame(frame).unwrap() {
             Command::Set(cmd) => {
                 // 使用一种hash算法选中db分片
-                let mut db = sharedDb[cmd.key().len() % sharedDb.len()].lock().unwrap();
+                let mut db = shared_db[cmd.key().len() % shared_db.len()].lock().unwrap();
 
                 // 值被存储为 `Vec<u8>` 的形式
                 db.insert(cmd.key().to_string(), cmd.value().to_vec().into());
                 Frame::Simple("OK".to_string())
             }
             Command::Get(cmd) => {
-                let db = sharedDb[cmd.key().len() % sharedDb.len()].lock().unwrap();
+                let db = shared_db[cmd.key().len() % shared_db.len()].lock().unwrap();
                 if let Some(value) = db.get(cmd.key()) {
                     // `Frame::Bulk` 期待数据的类型是 `Bytes`， 该类型会在后面章节讲解，
                     // 此时，你只要知道 `&Vec<u8>` 可以使用 `into()` 方法转换成 `Bytes` 类型

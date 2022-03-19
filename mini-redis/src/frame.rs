@@ -1,15 +1,12 @@
 use bytes::Bytes;
 
-enum Frame<T>
-where
-    T: ToString,
-{
-    Simple(T),
-    Error(T),
+pub enum Frame {
+    Simple(String),
+    Error(String),
     Integer(u64),
     Bulk(Bytes),
     Null,
-    Array(Vec<Frame<T>>),
+    Array(Vec<Frame>),
 }
 
 // enum HttpFrame {

@@ -1,7 +1,7 @@
 use std::io::Cursor;
 
+use crate::{Error, Frame, Result};
 use bytes::{Buf, BytesMut};
-use mini_redis::{Frame, Result};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt, BufWriter},
     net::TcpStream,
@@ -21,7 +21,8 @@ impl Connection {
             buffer: BytesMut::with_capacity(4096),
         }
     }
-    pub async fn read_freme(&mut self) -> Result<Option<Frame>> {
+
+    pub async fn read_frame(&mut self) -> Result<Option<Frame>> {
         loop {
             // 如果缓冲区的数据已经足够一个frame，就返回
             if let Some(frame) = self.parse_frame()? {
@@ -34,7 +35,7 @@ impl Connection {
                 if self.buffer.is_empty() {
                     return Ok(None);
                 }
-                return Err("connection reset by peer".into());
+                return Err(Error::ConnectError("connection reset by peer".to_string()));
             }
         }
     }
@@ -87,7 +88,7 @@ impl Connection {
                 Ok(Some(frame))
             }
             // 缓冲区数据不足以解析出一个完整的数据帧
-            Err(mini_redis::frame::Error::Incomplete) => Ok(None),
+            Err(crate::error::Error::Incomplete) => Ok(None),
             Err(e) => Err(e.into()),
         }
     }

@@ -1,6 +1,5 @@
 use std::time::Duration;
 
-use mini_redis::{self, client, Result};
 use tokio::sync::oneshot;
 
 enum Command<T>
@@ -9,7 +8,7 @@ where
 {
     Get {
         key: T,
-        sender: oneshot::Sender<mini_redis::Result<Option<bytes::Bytes>>>,
+        sender: oneshot::Sender<crate::Result<Option<bytes::Bytes>>>,
     },
     Set {
         key: T,
