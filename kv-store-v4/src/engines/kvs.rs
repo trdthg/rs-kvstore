@@ -18,25 +18,25 @@ use crate::{KvsEngine, KvsError, Result};
 const COMPACTION_THRESHOLD: u64 = 1024 * 1024;
 
 /// The `KvStore` stores key/value pairs
-/// 这次是一个共享的引擎，每个引擎都有一个reader和writer
-/// 结构体的所有属性都使用Arc包裹
+/// 这次是一个共享的引擎，每个引擎都有一个 reader 和 writer
+/// 结构体的所有属性都使用 Arc 包裹
 /// 读写分为了两个结构体，各自封装了各自需要的属性
-/// 如果是重复的树形，就用Arc::clone共享
+/// 如果是重复的树形，就用 Arc::clone 共享
 #[derive(Clone)]
 pub struct KvStore {
     path: Arc<PathBuf>,
 
-    /// 封装了之前的逻辑：内部每一个日志就对应一个reader
+    /// 封装了之前的逻辑：内部每一个日志就对应一个 reader
     reader: KvStoreReader,
 
-    /// 每次启动是就会新建一个log文件，Writer只负责向这个新的文件写入
+    /// 每次启动是就会新建一个 log 文件，Writer 只负责向这个新的文件写入
     // writer: BufWriterWithPos<File>,
     writer: Arc<Mutex<KvStoreWriter>>,
 
-    /// 索引：这次使用crossbeam提供的skipmap实现无锁并发
+    /// 索引：这次使用 crossbeam 提供的 skipmap 实现无锁并发
     // index: BTreeMap<String, CommandPos>,
     index: Arc<SkipMap<String, CommandPos>>,
-    // 都被封装进了writer
+    // 都被封装进了 writer
     // current_gen: u64,
     // uncompacted: u64,
 }
@@ -54,17 +54,17 @@ impl KvStore {
         let gen_list = sorted_gen_list(&path)?;
         let mut uncompacted = 0;
 
-        // 为每个日志创建一个Reader，顺便统计总可压缩数量
+        // 为每个日志创建一个 Reader，顺便统计总可压缩数量
         for &gen in &gen_list {
             let mut reader = BufReaderWithPos::new(File::open(log_path(&path, gen))?)?;
             uncompacted += load(gen, &mut reader, &*index)?;
             readers.insert(gen, reader);
         }
 
-        // 获取最新的版本号(还有即将创建的，所以要+1)
+        // 获取最新的版本号 (还有即将创建的，所以要 +1)
         let current_gen = gen_list.last().unwrap_or(&0) + 1;
 
-        // 反正就是一个原子的u64
+        // 反正就是一个原子的 u64
         let safe_point = Arc::new(AtomicU64::new(0));
 
         let reader = KvStoreReader {
@@ -75,7 +75,7 @@ impl KvStore {
 
         let writer = new_log_file(&path, current_gen)?;
 
-        // 为新的文件new一个Writer
+        // 为新的文件 new 一个 Writer
         let writer = KvStoreWriter {
             reader: reader.clone(),
             writer,
@@ -116,7 +116,7 @@ impl KvsEngine for KvStore {
     }
 }
 
-/// 每一个`Kvstore`都有自己的reader，用户使用在多个线程中使用各自的store去并发读取
+/// 每一个`Kvstore`都有自己的 reader，用户使用在多个线程中使用各自的 store 去并发读取
 ///
 ///
 struct KvStoreReader {
@@ -127,14 +127,14 @@ struct KvStoreReader {
 }
 
 impl KvStoreReader {
-    // 关闭经过压缩后**多余**的handle(&reader)，只在compact时safe_point才会被设置为compaction_gen，正常调用
+    // 关闭经过压缩后**多余**的 handle(&reader)，只在 compact 时 safe_point 才会被设置为 compaction_gen，正常调用
     fn close_stable_handles(&self) {
         let mut readers = self.readers.borrow_mut();
         while !readers.is_empty() {
             let first_gen = *readers.keys().next().unwrap();
-            // 当压缩后会将压缩日志id的保存进pointer
+            // 当压缩后会将压缩日志 id 的保存进 pointer
             // self.reader.safe_point.store(compaction_gen, Ordering::SeqCst);
-            // 所以这里当走到压缩日志处就会break，应该剩下的是压缩日志和新的写入日志
+            // 所以这里当走到压缩日志处就会 break，应该剩下的是压缩日志和新的写入日志
             if self.safe_point.load(Ordering::SeqCst) <= first_gen {
                 break;
             }
@@ -146,10 +146,10 @@ impl KvStoreReader {
     where
         F: FnOnce(io::Take<&mut BufReaderWithPos<File>>) -> Result<R>,
     {
-        // read之前确保老版本被删除
+        // read 之前确保老版本被删除
         self.close_stable_handles();
         let mut readers = self.readers.borrow_mut();
-        // 判断readers里有没有一些日志没有加载进来(比如压缩日志)
+        // 判断 readers 里有没有一些日志没有加载进来 (比如压缩日志)
         if !readers.contains_key(&cmd_pos.gen) {
             let reader = BufReaderWithPos::new(File::open(log_path(&self.path, cmd_pos.gen))?)?;
             readers.insert(cmd_pos.gen, reader);
@@ -185,7 +185,7 @@ struct KvStoreWriter {
     index: Arc<SkipMap<String, CommandPos>>,
 }
 
-/// writer本身被mutex包裹，不需要mut，调用writer前🔓
+/// writer 本身被 mutex 包裹，不需要 mut，调用 writer 前🔓
 impl KvStoreWriter {
     fn set(&mut self, key: String, value: String) -> Result<()> {
         let cmd = Command::set(key, value);
@@ -216,7 +216,7 @@ impl KvStoreWriter {
 
             if let Command::Remove { key } = cmd {
                 let old_cmd = self.index.remove(&key).ok_or(KvsError::KeyNotFound)?;
-                // 原本有的Insert也被压缩
+                // 原本有的 Insert 也被压缩
                 self.uncompacted += old_cmd.value().len;
                 // 新的写入的长度，这个长度是序列化实际写入的长度
                 self.uncompacted += self.writer.pos - pos;
@@ -232,7 +232,7 @@ impl KvStoreWriter {
         }
     }
 
-    // 向索引中写入数据，但是不会更新reader，read会判断有没有reader，没有再加上
+    // 向索引中写入数据，但是不会更新 reader，read 会判断有没有 reader，没有再加上
     fn compact(&mut self) -> Result<()> {
         // 这个是压缩版本
         let compaction_gen = self.current_gen + 1;
@@ -258,14 +258,14 @@ impl KvStoreWriter {
         }
         self.writer.flush()?;
 
-        // 关闭之前版本的handle
-        // 这个过程只有在compact时发生，刚开始为0，压缩时store为compaction_gen
+        // 关闭之前版本的 handle
+        // 这个过程只有在 compact 时发生，刚开始为 0，压缩时 store 为 compaction_gen
         self.reader
             .safe_point
             .store(compaction_gen, Ordering::SeqCst);
         self.reader.close_stable_handles();
 
-        // 删除handle对应的日志文件
+        // 删除 handle 对应的日志文件
         // 先拿到之前的所有版本号
         let stable_gens = sorted_gen_list(&self.path)?
             .into_iter()
@@ -306,9 +306,9 @@ fn log_path(dir: &Path, gen: u64) -> PathBuf {
 /// Load the whole log file and store value locations in the index map.
 /// Return how many butes can be saved after a compation.
 ///
-/// load会加载所有日志的索引
-/// 我们这里没有单独的索引文件，因为数据文件使用serde序列化了Command结构体，而是直接从数据文件中遍历所有数据组合出索引文件
-/// 加载一个日志文件，向索引树中添加所有的操作纪录(Key, CommandPos)
+/// load 会加载所有日志的索引
+/// 我们这里没有单独的索引文件，因为数据文件使用 serde 序列化了 Command 结构体，而是直接从数据文件中遍历所有数据组合出索引文件
+/// 加载一个日志文件，向索引树中添加所有的操作纪录 (Key, CommandPos)
 /// 返回可以压缩的数量
 fn load(
     gen: u64,
@@ -318,32 +318,32 @@ fn load(
     // 加载某个版本的日志文件
     let mut pos = reader.seek(SeekFrom::Start(0))?;
 
-    // 反序列化为Stream流
+    // 反序列化为 Stream 流
     let mut stream = Deserializer::from_reader(reader).into_iter::<Command>();
     let mut uncompacted = 0;
 
-    // 以此向索引中添加command记录，并统计可压缩数量
+    // 以此向索引中添加 command 记录，并统计可压缩数量
     while let Some(cmd) = stream.next() {
         let new_pos = stream.byte_offset() as u64;
         match cmd? {
-            // 如果是插入就将key加入到索引
+            // 如果是插入就将 key 加入到索引
             Command::Set { key, .. } => {
-                // 如果有重复插入的动作就意味着日志可以被压缩的数量+1
+                // 如果有重复插入的动作就意味着日志可以被压缩的数量 +1
                 if let Some(old_cmd) = index.get(&key) {
                     uncompacted += old_cmd.value().len;
                 }
                 index.insert(key, (gen, pos..new_pos).into());
             }
-            // 如果是删除就将key从索引删除
+            // 如果是删除就将 key 从索引删除
             Command::Remove { key } => {
                 // set set set remove
 
-                // 如果有删除的动作，就意味着日志被压缩的数量+1
-                // 这里+1值的是上一次set
+                // 如果有删除的动作，就意味着日志被压缩的数量 +1
+                // 这里 +1 值的是上一次 set
                 if let Some(old_cmd) = index.remove(&key) {
                     uncompacted += old_cmd.value().len;
                 }
-                // 还要加上remove自身
+                // 还要加上 remove 自身
                 uncompacted += new_pos - pos;
             }
         }
@@ -383,8 +383,8 @@ impl Command {
 
 /// Represents the position and length of a json-seralizaed command in the log file
 ///
-/// 保存了一条Command在日志中的位置
-/// pos是位置，len是长度
+/// 保存了一条 Command 在日志中的位置
+/// pos 是位置，len 是长度
 #[derive(Debug, Clone, Copy)]
 struct CommandPos {
     gen: u64,
@@ -402,10 +402,10 @@ impl From<(u64, Range<u64>)> for CommandPos {
     }
 }
 
-/// IO相关
+/// IO 相关
 ///
-/// 重要的就是封装的reader和pos，pos保存了每次read， write，seek操作后的位置
-/// 因为read和write后会根据返回的大小更新pos的位置
+/// 重要的就是封装的 reader 和 pos，pos 保存了每次 read，write，seek 操作后的位置
+/// 因为 read 和 write 后会根据返回的大小更新 pos 的位置
 #[derive(Debug)]
 struct BufReaderWithPos<R: Read + Seek> {
     reader: BufReader<R>,
